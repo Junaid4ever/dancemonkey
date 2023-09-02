@@ -7,7 +7,7 @@ import getindianname as name
 
 nest_asyncio.apply()
 
-async def start(name, user, wait_time, meetingcode, passcode)::
+async def start(name, user, wait_time, meetingcode, passcode):
     print(f"{name} started!")
 
     browser = await launch(
