@@ -81,27 +81,46 @@ def driver_wait(driver, locator, by, secs=10, condition=ec.element_to_be_clickab
     return element
 
 
-def start(name, proxy, user, wait_time):
+def start(name, proxy, user, wait_time, meetingcode, passcode):
     sync_print(f"{name} started!")
     driver = get_driver(proxy)
-    driver.get(f'https://zoom.us/wc/join/'+meetingcode)
-    time.sleep(3)
-    inp = driver.find_element(By.ID, 'inputname')
-    time.sleep(1)
-    inp.send_keys(f"{user}")
-    btn2 = driver.find_element(By.ID, 'joinBtn')
-    btn2.click()
-    time.sleep(2)
-    inp2 = driver.find_element(By.ID, 'inputpasscode')
-    time.sleep(1)
-    inp2.send_keys(passcode)
-    btn3 = driver.find_element(By.ID, 'joinBtn')
-    time.sleep(1)
-    btn3.click()
-    sync_print(f"{name} sleep for {wait_time} seconds ...")
-    time.sleep(wait_time)
-    sync_print(f"{name} ended!")
+    driver.get(f'https://zoom.us/wc/join/{meetingcode}')
 
+    try:
+        accept_btn = driver.find_element(By.ID, 'onetrust-accept-btn-handler')
+        accept_btn.click()
+    except Exception as e:
+        pass
+
+    try:
+        agree_btn = driver.find_element(By.ID, 'wc_agree1')
+        agree_btn.click()
+    except Exception as e:
+        pass
+
+    try:
+        input_box = driver.find_element(By.CSS_SELECTOR, 'input[type="text"]')
+        input_box.send_keys(user)
+        password_box = driver.find_element(By.CSS_SELECTOR, 'input[type="password"]')
+        password_box.send_keys(passcode)
+        join_button = driver.find_element(By.CSS_SELECTOR, 'button.preview-join-button')
+        join_button.click()
+    except Exception as e:
+        pass
+
+    try:
+        audio_button = driver.find_element(By.XPATH, '//button[text()="Join Audio by Computer"]')
+        time.sleep(13)
+        audio_button.click()
+        print(f"{name} mic aayenge.")
+    except Exception as e:
+        print(f"{name} mic nahe aayenge. ", e)
+
+    sync_print(f"{name} sleep for {wait_time} seconds ...")
+    while running and wait_time > 0:
+        time.sleep(1)
+        wait_time -= 1
+    sync_print(f"{name} ended!")
 
 def main():
     wait_time = sec * 60
