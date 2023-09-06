@@ -81,7 +81,7 @@ def driver_wait(driver, locator, by, secs=10, condition=ec.element_to_be_clickab
     return element
 
 
-def start(name, proxy, user, wait_time, meetingcode, passcode):
+def start(name, proxy, user, wait_time):
     sync_print(f"{name} started!")
     driver = get_driver(proxy)
     driver.get(f'https://zoom.us/wc/join/{meetingcode}')
@@ -121,6 +121,7 @@ def start(name, proxy, user, wait_time, meetingcode, passcode):
         time.sleep(1)
         wait_time -= 1
     sync_print(f"{name} ended!")
+
 
 def main():
     wait_time = sec * 60
