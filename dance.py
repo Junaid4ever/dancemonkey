@@ -1,19 +1,16 @@
 import time
-import warnings
 import threading
 import asyncio
-from faker import Faker
+from concurrent.futures import ThreadPoolExecutor
 from selenium import webdriver
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.wait import WebDriverWait
-from selenium.webdriver.support import expected_conditions as ec
-from playwright.sync_api import sync_playwright
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import random
+import getindianname as name
 
-warnings.filterwarnings('ignore')
-fake = Faker('en_IN')
-MUTEX = threading.Lock()
-running = True  # Used to control the main loop
+# Flag to indicate whether the script is running
+running = True
 
 def sync_print(text):
     with MUTEX:
@@ -40,77 +37,82 @@ def get_driver():
     driver = webdriver.Chrome("chromedriver", options=options)
     return driver
 
-def driver_wait(driver, locator, by, secs=10, condition=ec.element_to_be_clickable):
+def driver_wait(driver, locator, by, secs=10, condition=EC.element_to_be_clickable):
     wait = WebDriverWait(driver=driver, timeout=secs)
     element = wait.until(condition((by, locator)))
     return element
 
-async def start(name, user, wait_time, meetingcode, passcode):
-    print(f"{name} started!")
+def start(name, user, wait_time, meetingcode, passcode):
+    sync_print(f"{name} started!")
+    driver = get_driver()
+    driver.get(f'https://zoom.us/wc/join/{meetingcode}')
 
-    async with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True, args=['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'])
-        context = browser.new_context(permissions=['microphone'])
-        page = context.new_page()
-        await page.goto(f'https://zoom.us/wc/join/{meetingcode}', timeout=200000)
+    try:
+        accept_btn = driver.find_element(By.ID, 'onetrust-accept-btn-handler')
+        accept_btn.click()
+    except Exception as e:
+        pass
 
-        try:
-            await page.click('//button[@id="onetrust-accept-btn-handler"]', timeout=5000)
-        except Exception as e:
-            pass
+    try:
+        agree_btn = driver.find_element(By.ID, 'wc_agree1')
+        agree_btn.click()
+    except Exception as e:
+        pass
 
-        try:
-            await page.click('//button[@id="wc_agree1"]', timeout=5000)
-        except Exception as e:
-            pass
+    try:
+        input_box = driver.find_element(By.CSS_SELECTOR, 'input[type="text"]')
+        input_box.send_keys(user)
+        password_box = driver.find_element(By.CSS_SELECTOR, 'input[type="password"]')
+        password_box.send_keys(passcode)
+        join_button = driver.find_element(By.CSS_SELECTOR, 'button.preview-join-button')
+        join_button.click()
+    except Exception as e:
+        pass
 
-        try:
-            await page.wait_for_selector('input[type="text"]', timeout=200000)
-            await page.fill('input[type="text"]', user)
-            await page.fill('input[type="password"]', passcode)
-            join_button = await page.wait_for_selector('button.preview-join-button', timeout=200000)
-            await join_button.click()
-        except Exception as e:
-            pass
+    try:
+        audio_button = driver.find_element(By.XPATH, '//button[text()="Join Audio by Computer"]')
+        time.sleep(13)
+        audio_button.click()
+        print(f"{name} mic aayenge.")
+    except Exception as e:
+        print(f"{name} mic nahe aayenge. ", e)
 
-        try:
-            query = '//button[text()="Join Audio by Computer"]'
-            await asyncio.sleep(13)
-            mic_button_locator = await page.wait_for_selector(query, timeout=350000)
-            await asyncio.sleep(10)
-            await mic_button_locator.evaluate_handle('node => node.click()')
-            print(f"{name} mic aayenge.")
-        except Exception as e:
-            print(f"{name} mic nahe aayenge. ", e)
+    sync_print(f"{name} sleep for {wait_time} seconds ...")
+    while running and wait_time > 0:
+        time.sleep(1)
+        wait_time -= 1
+    sync_print(f"{name} ended!")
 
-        print(f"{name} sleep for {wait_time} seconds ...")
-        while running and wait_time > 0:
-            await asyncio.sleep(1)
-            wait_time -= 1
-        print(f"{name} ended!")
-
-        await browser.close()
+    driver.quit()
 
 def main():
-    global meetingcode, passcode
+    global running
+    number = int(input("Enter number of Users: "))
     meetingcode = input("Enter meeting code (No Space): ")
     passcode = input("Enter Password (No Space): ")
-    number = int(input("Enter number of Users: "))
-    sec = 5
+
+    sec = 90
     wait_time = sec * 60
-    workers = []
-    for i in range(number):
+
+    with ThreadPoolExecutor(max_workers=number) as executor:
+        tasks = []
+        for i in range(number):
+            try:
+                # Generate a random Indian name using getindianname
+                user = name.randname()
+            except IndexError:
+                break
+            task = executor.submit(start, f'[Thread{i}]', user, wait_time, meetingcode, passcode)
+            tasks.append(task)
         try:
-            user = fake.name()
-        except IndexError:
-            break
-        wk = threading.Thread(target=start, args=(
-            f'[Thread{i}]', user, wait_time, meetingcode, passcode))
-        workers.append(wk)
-    for wk in workers:
-        wk.start()
-    for wk in workers:
-        wk.join()
+            for task in tasks:
+                task.result()
+        except KeyboardInterrupt:
+            running = False
+            # Wait for tasks to complete
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass
