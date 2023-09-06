@@ -9,6 +9,9 @@ from selenium.webdriver.support import expected_conditions as EC
 import random
 import getindianname as name
 
+# Define the MUTEX variable
+MUTEX = threading.Lock()
+
 # Flag to indicate whether the script is running
 running = True
 
